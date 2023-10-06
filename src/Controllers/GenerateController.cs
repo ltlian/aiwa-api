@@ -15,7 +15,7 @@ public class GenerateController(ILogger<GenerateController> logger, UkesMailComp
     private readonly UkesMailCompletion _ukesMailCompletion = ukesMailCompletion;
     private const string TextEventStream = "text/event-stream";
     private static readonly List<MediaTypeHeaderValue> _acceptStreamHeaders = [new(TextEventStream)];
-    private static readonly List<MediaTypeHeaderValue> _acceptJsonHeaders = [new(MediaTypeNames.Application.Json), new(""), new("*/*")];
+    private static readonly List<MediaTypeHeaderValue> _acceptJsonHeaders = [new(MediaTypeNames.Application.Json), new("*/*")];
     private const int MAX_INPUT_LINES = 5;
     private const int MAX_INPUT_CHARS = 1000;
 
