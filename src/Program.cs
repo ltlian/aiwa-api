@@ -1,8 +1,11 @@
+using AIWA.API.Integrations.GPT4;
 
 namespace AIWA.API;
 
 public class Program
 {
+    private const string CORS_POLICY = "CORS_POLICY";
+
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
@@ -10,42 +13,64 @@ public class Program
         // Add services to the container.
         builder.Services.AddAuthorization();
 
+        builder.Services.AddControllers();
+        builder.Services.AddCors
+        (
+            options => options.AddPolicy
+            (
+                name: CORS_POLICY,
+                policy =>
+                {
+                    if (builder.Environment.IsDevelopment())
+                    {
+                        policy.AllowAnyMethod();
+                        policy.AllowAnyOrigin();
+                    }
+                    else
+                    {
+                        policy.WithMethods(HttpMethods.Get, HttpMethods.Post, HttpMethods.Options);
+                        policy.WithOrigins("http://127.0.0.1:5173");
+                        policy.WithOrigins("https://happy-rock-0ca806f03.3.azurestaticapps.net");
+                    }
+
+                    policy.AllowAnyHeader();
+                }
+            )
+        );
+
         // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
 
+        builder.Services
+            .AddScoped<UkesMailCompletion>()
+            .AddOptions<OpenAIOptions>()
+            .BindConfiguration(nameof(OpenAIOptions))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
+        // https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks?view=aspnetcore-8.0
+        builder.Services
+            .AddHealthChecks();
+
         var app = builder.Build();
 
         // Configure the HTTP request pipeline.
-        if (app.Environment.IsDevelopment())
-        {
-            app.UseSwagger();
-            app.UseSwaggerUI();
-        }
+        app.UseCors(CORS_POLICY);
+        app.UseSwagger();
+        app.UseSwaggerUI();
 
         app.UseHttpsRedirection();
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseHttpLogging();
+        }
 
         app.UseAuthorization();
 
-        var summaries = new[]
-        {
-            "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-        };
+        app.MapControllers();
 
-        app.MapGet("/weatherforecast", (HttpContext httpContext) =>
-        {
-            var forecast =  Enumerable.Range(1, 5).Select(index =>
-                new WeatherForecast
-                {
-                    Date = DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                    TemperatureC = Random.Shared.Next(-20, 55),
-                    Summary = summaries[Random.Shared.Next(summaries.Length)]
-                })
-                .ToArray();
-            return forecast;
-        })
-        .WithName("GetWeatherForecast")
-        .WithOpenApi();
+        app.MapHealthChecks("/healthz");
 
         app.Run();
     }
