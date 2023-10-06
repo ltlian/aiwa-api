@@ -5,6 +5,7 @@ namespace AIWA.API;
 public class Program
 {
     private const string CORS_POLICY = "CORS_POLICY";
+    private const string CORS_ORIGINS_ENV = "CORS_ORIGINS";
 
     public static void Main(string[] args)
     {
@@ -28,9 +29,15 @@ public class Program
                     }
                     else
                     {
+                        var corsOrigins = Environment.GetEnvironmentVariable(CORS_ORIGINS_ENV);
+                        var originsArray = corsOrigins?.Split(';', StringSplitOptions.RemoveEmptyEntries);
+                        if ((originsArray?.Length ?? 0) == 0)
+                        {
+                            throw new InvalidOperationException($"'{CORS_ORIGINS_ENV}' environment variable is not set or contains no valid origins.");
+                        }
+
                         policy.WithMethods(HttpMethods.Get, HttpMethods.Post, HttpMethods.Options);
-                        policy.WithOrigins("http://127.0.0.1:5173");
-                        policy.WithOrigins("https://happy-rock-0ca806f03.3.azurestaticapps.net");
+                        policy.WithOrigins(originsArray!);
                     }
 
                     policy.AllowAnyHeader();

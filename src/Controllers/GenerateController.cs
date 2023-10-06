@@ -63,7 +63,7 @@ public class GenerateController(ILogger<GenerateController> logger, UkesMailComp
             return Problem
             (
                 title: "Invalid format",
-                detail: $"The format specified by the 'Accept' header is not valid. Expected formats are '${MediaTypeNames.Application.Json}' (default) or '${TextEventStream}'.",
+                detail: $"The format specified by the 'Accept' header is not valid. Expected formats are '{MediaTypeNames.Application.Json}' (default) or '{TextEventStream}'.",
                 statusCode: StatusCodes.Status400BadRequest
             );
         }
