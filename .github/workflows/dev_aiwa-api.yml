@@ -26,6 +26,9 @@ jobs:
       - name: Build with dotnet
         run: dotnet build src/AIWA.API.csproj -c Release
 
+      - name: Run tests
+        run: dotnet test -c Release --verbosity normal
+
       # The Azure Web App service runs the risk of trying to run the app using .NET7. In this case, it might be necessary to deploy as self-contained and with the appropriate rid.
       # See https://learn.microsoft.com/en-us/dotnet/core/deploying/#publish-self-contained
       # Example: dotnet publish src/AIWA.API.csproj --self-contained -r linux-x64 -c Release -o ${{env.DOTNET_ROOT}}/out
