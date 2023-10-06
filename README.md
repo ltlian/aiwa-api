@@ -9,6 +9,6 @@ The OpenAI integration depends on the configuration value `OpenAIOptions:OpenAIK
 One alternative is to use user-secrets:
 
 ```console
-    dotnet user-secrets --project src/AIWA.API.csproj init
-    dotnet user-secrets --project src/AIWA.API.csproj set OpenAIOptions:OpenAIKey "your-key"
+dotnet user-secrets --project src/AIWA.API.csproj init
+dotnet user-secrets --project src/AIWA.API.csproj set OpenAIOptions:OpenAIKey "your-key"
 ```
