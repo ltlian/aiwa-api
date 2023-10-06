@@ -1,0 +1,6 @@
+@AIWA.API_HostAddress = http://localhost:5031
+
+GET {{AIWA.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
