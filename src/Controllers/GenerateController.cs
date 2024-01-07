@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Mime;
-using AIWA.API.Integrations.GPT4;
+using AIWA.API.Integrations.GPT;
 using AIWA.API.Models;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
@@ -9,32 +9,23 @@ namespace AIWA.API.Controllers;
 
 [ApiController]
 [Route("[controller]")]
-public class GenerateController(ILogger<GenerateController> logger, UkesMailCompletion ukesMailCompletion) : ControllerBase
+public class GenerateController(ILogger<GenerateController> logger, IChatCompletion chatCompletionService) : ControllerBase
 {
     private readonly ILogger<GenerateController> _logger = logger;
-    private readonly UkesMailCompletion _ukesMailCompletion = ukesMailCompletion;
+    private readonly IChatCompletion _chatCompletionService = chatCompletionService;
     private const string TextEventStream = "text/event-stream";
     private static readonly List<MediaTypeHeaderValue> _acceptStreamHeaders = [new(TextEventStream)];
     private static readonly List<MediaTypeHeaderValue> _acceptJsonHeaders = [new(MediaTypeNames.Application.Json), new("*/*")];
     private const int MAX_INPUT_LINES = 5;
     private const int MAX_INPUT_CHARS = 1000;
 
-    /// <summary>
-    /// Generates a new ukesmail.
-    /// </summary>
-    /// <param name="input">Custom input parameters.</param>
-    /// <param name="accept">Response type.</param>
-    /// <remarks>
-    /// The Accept header is optional. By default, the method will return application/json.
-    /// - "application/json" (default): receive the content as JSON in a regular HTTP response.
-    /// - "text/event-stream": receive the content as plain text in a chunked stream.
-    /// </remarks>
-    [HttpPost("ukesmail")]
+    /**/
+    [HttpPost("chat")]
     [Produces(MediaTypeNames.Application.Json, TextEventStream)]
     [ProducesResponseType(StatusCodes.Status413RequestEntityTooLarge)]
     public async Task<IActionResult> PostAsync(AIWAInput input, CancellationToken cancellationToken)
     {
-
+        throw new NotImplementedException();
         var validationResult = ValidateInput(input);
         if (!validationResult.IsSuccess)
         {
@@ -48,15 +39,27 @@ public class GenerateController(ILogger<GenerateController> logger, UkesMailComp
 
         var requestAcceptHeader = HttpContext.Request.GetTypedHeaders().Accept;
 
-        if (requestAcceptHeader.Count == 0 || requestAcceptHeader.Any(_acceptStreamHeaders.Contains))
+        // First, check for JSON, or if no Accept header is provided, default to JSON.
+        if (requestAcceptHeader.Count == 0 || requestAcceptHeader.Any(_acceptJsonHeaders.Contains))
         {
-            var streamingResult = await _ukesMailCompletion.GetUkesMailStreamingAsync(input.Entries, cancellationToken);
-            return new ChunkedStreamingChatChoiceResult(streamingResult);
+            //var r = await _chatCompletionService.OpenAiHttpClient.CreateChatCompletionAsync();
+            //return new JsonResult(new AIWAResponse { Content = messages.First().Content });
         }
-        else if (requestAcceptHeader.Any(_acceptJsonHeaders.Contains))
+        else if (requestAcceptHeader.Any(_acceptStreamHeaders.Contains))
         {
-            var messages = await _ukesMailCompletion.GenerateUkesMailAsync(input.Entries, choices: 1, cancellationToken);
-            return new JsonResult(new AIWAResponse { Content = messages.First().Content });
+            //var streamingResult = await _chatCompletionService.GetChatCompletionStreamAsync(input.Entries.First(), cancellationToken);
+            //return new ChunkedStreamingChatCompletionResult(streamingResult);
+
+            // using (var stream = await response.Content.ReadAsStreamAsync())
+            // using (var reader = new StreamReader(stream))
+            // {
+            //     while (!reader.EndOfStream)
+            //     {
+            //         var chunk = await reader.ReadLineAsync();
+            //         // Process each chunk
+            //         Console.WriteLine(chunk);
+            //     }
+            // }
         }
         else
         {
@@ -83,4 +86,5 @@ public class GenerateController(ILogger<GenerateController> logger, UkesMailComp
 
         return Result<HttpStatusCode>.Success(HttpStatusCode.OK);
     }
+    /**/
 }

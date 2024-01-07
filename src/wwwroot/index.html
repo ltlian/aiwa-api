@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Audio Stream Test</title>
+  </head>
+  <body>
+    <h1>Audio Stream Test</h1>
+    <audio id="audio-player" controls type="audio/mpeg">
+      Your browser does not support the audio element.
+    </audio>
+    <div class="canvas-main">
+      <div class="left-block">
+        <div class="buttons">
+          <button id="clear" type="button">Clear image</button>
+          <button id="save" type="button">Save image</button>
+        </div>
+      </div>
+      <div class="right-block">
+        <canvas id="paint-canvas" width="640" height="400"></canvas>
+      </div>
+    </div>
+    <div class="brush-size-row">
+      <label for="brush-size">Brush Size: </label>
+      <input
+        type="number"
+        id="brush-size"
+        value="10"
+        min="1"
+        max="100"
+        step="2"
+      />
+      <div id="brush-preview"></div>
+      <div id="colors-box"></div>
+      <div id="brushes-box"></div>
+    </div>
+  </body>
+</html>
+<script>
+  // Nothing to see here except hacks and jank
+
+  var shouldFetchNew = true;
+  var actions = 0;
+  const visionImageUrl = "https://aiwa-api.azurewebsites.net/image?threadId=";
+  // const visionImageUrl = "http://localhost:5031/vision/image?threadId=";
+  var shouldStop = false;
+  var threadId = generateUuidv4();
+  var guid = generateUuidv4();
+
+  async function fetchAntiForgeryTokenAsync() {
+    try {
+      const response = await fetch("/antiforgery/token", {
+        method: "GET",
+        credentials: "include", // Ensures cookies are sent with the request
+      });
+
+      if (response.ok) {
+        const token = response.headers.get("requestverificationtoken");
+        if (token) {
+          console.log("Anti-forgery token retrieved:", token);
+          return token;
+        } else {
+          throw new Error("Anti-forgery token was not provided by the server.");
+        }
+      } else {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+    } catch (error) {
+      console.error("Error fetching anti-forgery token:", error);
+    }
+  }
+
+  function generateBrushes() {
+    const brushDiv = document.getElementById("brushes-box");
+    for (let index = 1; index < 6; index++) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "brush-button";
+      button.addEventListener("click", () => {
+        context.lineWidth = index;
+      });
+      brushDiv.append(button);
+    }
+  }
+
+  function generateColors() {
+    const colors = [
+      "#0000ff",
+      "#009fff",
+      "#0fffff",
+      "#bfffff",
+      "#000000",
+      "#333333",
+      "#666666",
+      "#999999",
+      "#ffcc66",
+      "#ffcc00",
+      "#ffff00",
+      "#ffff99",
+      "#003300",
+      "#555000",
+      "#00ff00",
+      "#99ff99",
+      "#f00000",
+      "#ff6600",
+      "#ff9933",
+      "#f5deb3",
+      "#330000",
+      "#663300",
+      "#cc6600",
+      "#deb887",
+      "#aa0fff",
+      "#cc66cc",
+      "#ff66ff",
+      "#ff99ff",
+      "#e8c4e8",
+      "#ffffff",
+    ];
+
+    const colorDiv = document.getElementById("colors-box");
+
+    colors.forEach((color) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "color-button";
+      // button.value = color;
+      button.style = "background-color:" + color;
+      button.addEventListener("click", function () {
+        // context.strokeStyle = event.target.value || "black";
+        context.strokeStyle = color;
+      });
+      colorDiv.append(button);
+    });
+  }
+
+  // Canvas
+
+  // Definitions
+  const imageFormat = "image/png";
+  const actionsTreshold = 2000;
+  var canvas = document.getElementById("paint-canvas");
+  var context = canvas.getContext("2d");
+  var boundings;
+  var antiForgeryToken;
+
+  context.fillStyle = "white";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  var mouseX = 0;
+  var mouseY = 0;
+  context.strokeStyle = "black";
+  context.lineWidth = 1;
+  var isDrawing = false;
+  var incrementActionTimerId = 0;
+  var idleTimerId = 0;
+
+  // End canvas
+
+  function setMouseCoordinates(event) {
+    mouseX = event.clientX - boundings.left;
+    mouseY = event.clientY - boundings.top;
+  }
+
+  function generateUuidv4() {
+    return "00000000-0000-4000-1000-000000000000".replace(
+      /[01]/g,
+      function (c) {
+        const uuid = (Math.random() * 16) | 0,
+          v = c == "0" ? uuid : (uuid & 0x3) | 0x8;
+        return uuid.toString(16);
+      }
+    );
+  }
+
+  function initBrushSizeThing() {
+    const brushSizeInput = document.getElementById("brush-size");
+    const brushPreview = document.getElementById("brush-preview");
+
+    brushSizeInput.addEventListener("input", function () {
+      const size = brushSizeInput.value;
+      context.lineWidth = size;
+      brushPreview.style.width = size + "px";
+      brushPreview.style.height = size + "px";
+    });
+  }
+
+  function incrementActions() {
+    actions++;
+    if (actions > actionsTreshold) {
+      actions = 0;
+      console.log(">> Auto-posting")
+      handleNewConvo();
+      postImageAndPlay();
+
+      // Clear timed increment
+      idleTimerId = setTimeout(() => {
+        clearInterval(incrementActionTimerId);
+        incrementActionTimerId = 0;
+        clearInterval(idleTimerId);
+        idleTimerId = 0;
+      }, 5000);
+    }
+  }
+
+  function initCanvas() {
+    generateColors();
+    initBrushSizeThing();
+    boundings = canvas.getBoundingClientRect();
+
+    context.fillStyle = "white";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Mouse Down Event
+    canvas.addEventListener("mousedown", function (event) {
+      setMouseCoordinates(event);
+      isDrawing = true;
+
+      if (incrementActionTimerId === 0) {
+        incrementActionTimerId = setInterval(() => {
+          incrementActions();
+        }, 1);
+      }
+
+      // Start Drawing
+      context.beginPath();
+      context.moveTo(mouseX, mouseY);
+    });
+
+    // Mouse Move Event
+    canvas.addEventListener("mousemove", function (event) {
+      setMouseCoordinates(event);
+
+      if (isDrawing) {
+        context.lineTo(mouseX, mouseY);
+        context.stroke();
+        if (idleTimerId !== 0) {
+          clearTimeout(idleTimerId);
+        }
+        incrementActions();
+      }
+    });
+
+    // Mouse Up Event
+    canvas.addEventListener("mouseup", function (event) {
+      setMouseCoordinates(event);
+      console.log("actions", actions);
+      isDrawing = false;
+    });
+
+    // Handle Clear Button
+    const clearButton = document.getElementById("clear");
+
+    clearButton.addEventListener("click", function () {
+      context.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    // Handle Save Button
+    const saveButton = document.getElementById("save");
+
+    saveButton.addEventListener("click", function () {
+      let imageName = prompt("Please enter image name");
+      let canvasDataURL = resizeCanvasR(0.5);
+      let a = document.createElement("a");
+      a.href = canvasDataURL;
+      a.download = imageName || "drawing";
+      a.click();
+    });
+  }
+
+  function resizeCanvasR(ratio) {
+    return resizeCanvasWH(canvas.width * ratio, canvas.height * ratio);
+  }
+
+  function resizeCanvasWH(width, height) {
+    const resizedCanvas = document.createElement("canvas");
+    const resizedContext = resizedCanvas.getContext("2d");
+
+    resizedCanvas.width = width;
+    resizedCanvas.height = height;
+
+    const canvas = document.getElementById("paint-canvas");
+
+    resizedContext.drawImage(canvas, 0, 0, width, height);
+    return resizedCanvas;
+  }
+
+  async function postImageAndPlay(init) {
+    resizeCanvasR(0.5).toBlob(async (blob) => {
+      const data = new FormData();
+      data.append("userImage", blob, "userImage.png");
+      if (shouldStop === true) {
+        console.log("appending stop");
+        data.append("stop", "true");
+      }
+
+      const response = await fetch(
+        visionImageUrl + threadId + "&guid=" + guid,
+        {
+          method: "POST",
+          // RequestVerificationToken: antiForgeryToken,
+          body: data,
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Network response was not ok", response);
+      }
+
+      const location = response.headers.get("Location");
+
+      if (!location) {
+        throw new Error("Did not receive 'Location' header value.");
+      }
+      const audioPlayer = document.getElementById("audio-player");
+
+      if (init === true) {
+        console.log("Playing");
+        audioPlayer.src = location;
+        audioPlayer.play();
+      } else {
+        console.log("Playing");
+        audioPlayer.src = location;
+        audioPlayer.play();
+      }
+
+    }, "image/png");
+  }
+
+  function handleAppend() {
+    postImageAndPlay(true);
+  }
+
+  document.addEventListener("DOMContentLoaded", function () {
+    initCanvas();
+  });
+
+  function handleNewConvo() {
+    guid = generateUuidv4();
+    threadId = generateUuidv4();
+  }
+</script>
+<style>
+  #brush-preview {
+    display: inline-block;
+    background-color: black;
+    border-radius: 50%;
+    /* Initial size of the brush */
+    width: 10px;
+    height: 10px;
+    margin-left: 10px;
+    vertical-align: middle;
+  }
+
+  .brushes-box {
+    border: 1px dotted red;
+    height: 500px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .brush-button {
+    border: 1px solid #00000026;
+    border-radius: 0;
+    outline: none;
+    cursor: pointer;
+    height: 10px;
+    width: 50px;
+  }
+
+  .color-button {
+    display: inline-block;
+    border: 1px solid #00000026;
+    border-radius: 0;
+    outline: none;
+    cursor: pointer;
+    width: 20px;
+    height: 20px;
+    margin: 2px;
+  }
+
+  .canvas-main {
+    width: 800px;
+    border: 1px solid #e0e0e0;
+    margin: 0 auto;
+    display: flex;
+    flex-grow: 1;
+  }
+
+  .left-block {
+    width: 160px;
+    border-right: 1px solid #e0e0e0;
+  }
+
+  .colors {
+    background-color: #ece8e8;
+    text-align: center;
+    padding-bottom: 5px;
+    padding-top: 10px;
+  }
+
+  .colors button {
+    display: inline-block;
+    border: 1px solid #00000026;
+    border-radius: 0;
+    outline: none;
+    cursor: pointer;
+    width: 20px;
+    height: 20px;
+    margin-bottom: 5px;
+  }
+
+  .brushes {
+    padding-top: 5px;
+  }
+
+  .brushes button {
+    display: block;
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+    background-color: #ece8e8;
+    margin-bottom: 5px;
+    padding: 5px;
+    height: 30px;
+    outline: none;
+    position: relative;
+    cursor: pointer;
+  }
+
+  .brushes button:after {
+    height: 1px;
+    display: block;
+    background: #808080;
+    content: "";
+  }
+
+  .brushes button:nth-of-type(1):after {
+    height: 1px;
+  }
+
+  .brushes button:nth-of-type(2):after {
+    height: 2px;
+  }
+
+  .brushes button:nth-of-type(3):after {
+    height: 3px;
+  }
+
+  .brushes button:nth-of-type(4):after {
+    height: 4px;
+  }
+
+  .brushes button:nth-of-type(5):after {
+    height: 5px;
+  }
+
+  .brush-size-row {
+    margin: 1em;
+  }
+
+  .buttons {
+    height: 80px;
+    padding-top: 10px;
+  }
+
+  .buttons button {
+    display: block;
+    width: 100%;
+    border: 0;
+    border-radius: 0;
+    background-color: #ece8e8;
+    margin-bottom: 5px;
+    padding: 5px;
+    height: 30px;
+    outline: none;
+    position: relative;
+    cursor: pointer;
+    font-size: 16px;
+  }
+
+  .right-block {
+    width: 640px;
+  }
+
+  #paint-canvas {
+    cursor: crosshair;
+  }
+</style>
