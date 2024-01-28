@@ -1,0 +1,176 @@
+:root {
+  font-family: "Roboto", Arial, Helvetica, sans-serif;
+  --flex-gap: 12px;
+}
+
+html,
+body {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-background);
+  color: var(--color-primary-text);
+}
+
+header {
+  font-size: smaller;
+  padding-inline: 0.5em;
+  color: var(--color-text-on-action);
+  background-color: var(--color-action-background);
+}
+
+.base-centered {
+  width: 100%;
+  margin: 0 auto;
+  padding: 0;
+}
+
+.butt-bar {
+  grid-column: 2;
+  display: flex;
+  list-style-type: none;
+  padding: 0;
+  margin: 0;
+}
+
+.butt-bar * + * {
+  margin-right: var(--flex-gap);
+}
+
+.butt {
+  border: none;
+  height: 100%;
+  padding: 10px 15px;
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--color-primary-text);
+  font-family: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.butt:hover:not(:disabled) {
+  background-color: var(--color-action-background);
+  color: var(--color-text-on-action);
+}
+
+/* Active button styles */
+.butt-active {
+  background-color: var(--color-action-background);
+  color: var(--color-text-on-action);
+}
+
+button:disabled {
+  opacity: 50%;
+  cursor: default;
+}
+
+@media (min-width: 1080px) {
+  .base-centered {
+    width: 80%;
+    padding: 4em;
+  }
+}
+
+@media (min-width: 1600px) {
+  header {
+    font-size: medium;
+  }
+  /* .base-centered {
+    width: 40%;
+  } */
+}
+
+#paint-ui {
+  display: grid;
+  grid-template-columns: 1fr 3fr;
+  grid-auto-rows: minmax(42px, auto);
+  gap: var(--flex-gap);
+  margin: var(--flex-gap) 0 var(--flex-gap) 0
+}
+
+.left-ui {
+  display: flex;
+  flex-direction: column;
+}
+
+#colors-box {
+  width: 200px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 2px;
+  grid-auto-rows: minmax(32px, auto);
+}
+
+#colors-box button {
+  display: block;
+  width: 100%;
+  border: 1px solid #00000026;
+  height: 30px;
+  cursor: pointer;
+}
+
+#paint-canvas {
+  cursor: crosshair;
+}
+
+#brush-size {
+  width: 3em;
+}
+
+#brush-size-container {
+  position: relative;
+  left: 20px;
+}
+
+#brush-preview {
+  position: absolute;
+  background-color: black;
+  border-radius: 50%;
+  /* Initial size of the brush */
+  width: 10px;
+  height: 10px;
+
+  left: 50%;
+  /* Use transform to move the circle's center to the container's center */
+  transform: translate(-50%, -50%);
+}
+
+#brush-row {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 10px;
+}
+
+#enhance-butt {
+  position: relative;
+}
+
+#img-progress-outer {
+  border: none;
+  border-radius: 4px;
+  margin: var(--flex-gap) 0 var(--flex-gap) 0;
+  background-color: var(--color-action-background);
+  width: 98%;
+  left: 50%;
+  transform: translate(-51%, 100%);
+  position: absolute;
+}
+
+#img-progress {
+  border: none;
+  border-radius: 4px;
+  height: 10px;
+  width: 0%;
+  background-color: var(--color-primary-warn);
+  transition: width 1s linear;
+}
+
+#enhanced-images {
+  display: flex;
+  flex-direction: column;
+  gap: var(--flex-gap);
+}

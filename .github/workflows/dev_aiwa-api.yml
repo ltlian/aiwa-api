@@ -23,6 +23,11 @@ jobs:
         with:
           dotnet-version: '8.x'
 
+      - name: 'Add private NuGet package feed'
+        shell: bash
+        run:
+          dotnet nuget add source --username ltlian --password ${{ secrets.NUGET_API_KEY }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/ltlian/index.json"
+
       - name: Build with dotnet
         run: dotnet build src/AIWA.API.csproj -c Release
 

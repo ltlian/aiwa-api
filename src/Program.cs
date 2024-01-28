@@ -1,84 +1,125 @@
-using AIWA.API.Integrations.GPT4;
+using System.Net.Mime;
+using AIWA.API.Data;
+using AIWA.API.Data.EF;
+using AIWA.API.Integrations.GPT;
+using AIWA.API.StartupConfiguration;
+using Lli.OpenAi.Core.Client;
+using Microsoft.AspNetCore.HttpLogging;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Net.Http.Headers;
 
 namespace AIWA.API;
 
 public class Program
 {
-    private const string CORS_POLICY = "CORS_POLICY";
-    private const string CORS_ORIGINS_ENV = "CORS_ORIGINS";
-
     public static void Main(string[] args)
     {
         var builder = WebApplication.CreateBuilder(args);
+        ConfigureServices(builder);
 
-        // Add services to the container.
+        var app = builder.Build();
+        ConfigureMiddleware(app);
+
+        app.Run();
+    }
+
+    private static void ConfigureServices(WebApplicationBuilder builder)
+    {
+        builder.Services.AddApplicationInsightsTelemetry();
+
+        //builder.Services.AddHostedService<DebugHostedService>();
+
         builder.Services.AddAuthorization();
-
         builder.Services.AddControllers();
-        builder.Services.AddCors
-        (
-            options => options.AddPolicy
-            (
-                name: CORS_POLICY,
-                policy =>
-                {
-                    if (builder.Environment.IsDevelopment())
-                    {
-                        policy.AllowAnyMethod();
-                        policy.AllowAnyOrigin();
-                    }
-                    else
-                    {
-                        var corsOrigins = Environment.GetEnvironmentVariable(CORS_ORIGINS_ENV);
-                        var originsArray = corsOrigins?.Split(';', StringSplitOptions.RemoveEmptyEntries);
-                        if ((originsArray?.Length ?? 0) == 0)
-                        {
-                            throw new InvalidOperationException($"'{CORS_ORIGINS_ENV}' environment variable is not set or contains no valid origins.");
-                        }
 
-                        policy.WithMethods(HttpMethods.Get, HttpMethods.Post, HttpMethods.Options);
-                        policy.WithOrigins(originsArray!);
-                    }
+        if (!builder.Environment.IsDevelopment())
+        {
+            builder.Services.AddHostFiltering(o =>
+            {
+                o.AllowedHosts = StartupHelpers.GetRequiredEnvironmentVariable(Constants.ALLOWED_HOSTS_ENV);
+            });
+        }
+        else
+        {
+            builder.Services.AddHttpLogging(ConfigureHttpLoggingOptions);
+        }
 
-                    policy.AllowAnyHeader();
-                }
-            )
-        );
+        builder.Services.AddCors(s => StartupHelpers.ConfigureCors(s, builder.Environment.IsDevelopment()));
 
-        // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
 
+        builder.Services.AddScoped<IVisionService, VisionService>()
+            .AddScoped<ISpeechService, SpeechService>()
+            .AddScoped<IUkesmailCompletion, UkesmailCompletionService>();
+
+        builder.Services.AddDbContext<AiwaSQLiteContext>(options => options.UseSqlite(builder.Configuration.GetConnectionString(nameof(AiwaSQLiteContext))));
+        builder.Services.AddScoped<IDataStore, AiwaEFDataStore>();
+
+        builder.Services.AddHttpClient<IOpenAiHttpClient, OpenAiHttpClient >();
+
         builder.Services
-            .AddScoped<UkesMailCompletion>()
+            .AddAntiforgery()
+            .AddOptions<OpenAIHttpClientOptions>()
+            .BindConfiguration(nameof(OpenAIHttpClientOptions));
+
+        builder.Services.AddSingleton<IStreamCache, StreamCache>();
+
+        builder.Services
+            .AddScoped<IChatCompletion, ChatCompletionService>()
             .AddOptions<OpenAIOptions>()
             .BindConfiguration(nameof(OpenAIOptions))
             .ValidateDataAnnotations()
             .ValidateOnStart();
 
         // https://learn.microsoft.com/en-us/aspnet/core/host-and-deploy/health-checks?view=aspnetcore-8.0
-        builder.Services
-            .AddHealthChecks();
+        builder.Services.AddHealthChecks();
+    }
 
-        var app = builder.Build();
-
+    private static void ConfigureMiddleware(WebApplication app)
+    {
         // Configure the HTTP request pipeline.
-        app.UseCors(CORS_POLICY);
+        app.UseCors(Constants.CORS_POLICY);
         app.UseSwagger();
         app.UseSwaggerUI();
 
-        app.UseHttpsRedirection();
         if (app.Environment.IsDevelopment())
         {
             app.UseHttpLogging();
         }
+        else
+        {
+            app.UseHttpsRedirection();
+        }
 
         app.UseAuthorization();
-
+        app.UseStaticFiles();
         app.MapControllers();
-
         app.MapHealthChecks("/healthz");
 
-        app.Run();
+        // Initialize database on application start
+        using var scope = app.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AiwaSQLiteContext>();
+        dbContext.Database.Migrate();
+    }
+
+    private static void ConfigureHttpLoggingOptions(HttpLoggingOptions options)
+    {
+        // Log basic request and response information
+        options.LoggingFields =
+            HttpLoggingFields.RequestPath |
+            HttpLoggingFields.RequestMethod |
+            HttpLoggingFields.ResponseStatusCode |
+            HttpLoggingFields.RequestHeaders |
+            HttpLoggingFields.ResponseHeaders;
+
+        // Specify headers to log
+        options.RequestHeaders.Add(HeaderNames.ContentType);
+        options.ResponseHeaders.Add(HeaderNames.ContentType);
+
+        // Optionally log request and response bodies for specific content types
+        options.MediaTypeOptions.AddText(MediaTypeNames.Application.Json);
+        options.RequestBodyLogLimit = 4096; // Limit body size to log
+        options.ResponseBodyLogLimit = 4096;
     }
 }

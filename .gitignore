@@ -3,6 +3,10 @@
 ##
 ## Get latest from `dotnet new gitignore`
 
+# AIWA specific files
+
+aiwa.db*
+
 # dotenv files
 .env
 
@@ -10,8 +14,10 @@
 *.rsuser
 *.suo
 *.user
+*.user.sln
 *.userosscache
 *.sln.docstates
+Directory.Build.props
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

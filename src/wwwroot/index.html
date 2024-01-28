@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="style/theme.css" />
+    <script src="script/index.js"></script>
+    <title>AIWA - AI Web Application</title>
+  </head>
+
+  <body>
+    <main class="base-centered">
+      <header>
+        <h1>Audio Stream Test</h1>
+      </header>
+      <audio id="audio-player" type="audio/mpeg"></audio>
+      <div id="paint-ui">
+        <ul class="butt-bar">
+          <li>
+            <button class="butt" id="clear-butt" type="button">
+              Clear image
+            </button>
+          </li>
+          <li>
+            <button class="butt" id="save-butt" type="button">
+              Save image
+            </button>
+          </li>
+          <li>
+            <button class="butt" id="enhance-butt" type="button">
+              <div id="img-progress-outer">
+                <div id="img-progress"></div>
+              </div>
+              Enhance!
+            </button>
+          </li>
+        </ul>
+        <div class="left-ui">
+          <div id="colors-box"></div>
+          <div id="brush-row">
+            <label for="brush-size">Brush Size</label>
+            <input
+              type="number"
+              id="brush-size"
+              name="brush-size"
+              value="10"
+              min="1"
+              max="100"
+              step="2"
+            />
+            <div id="brush-size-container">
+              <div id="brush-preview"></div>
+            </div>
+          </div>
+        </div>
+        <!-- <div class="canvas-main">
+          <div id="enhanced-images"></div>
+        </div> -->
+        <div>
+          <canvas id="paint-canvas"></canvas>
+        </div>
+      </div>
+      <div id="enhanced-images"></div>
+    </main>
+  </body>
+</html>
