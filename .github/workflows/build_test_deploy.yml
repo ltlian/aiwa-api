@@ -23,16 +23,27 @@ jobs:
         with:
           dotnet-version: '8.x'
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/AIWA.API.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+      
       - name: Add private NuGet package feed
         shell: bash
         run:
           dotnet nuget add source --username ltlian --password ${{ secrets.NUGET_API_KEY }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/ltlian/index.json"
 
+      - name: Restore dependencies
+        run:  dotnet restore aiwa-api.sln
+        
       - name: dotnet build
-        run: dotnet build src/AIWA.API.csproj -c Release
+        run: dotnet build aiwa-api.sln --no-restore -c Release
 
       - name: dotnet test
-        run: dotnet test -c Release --logger trx --results-directory "TestResults"
+        run: dotnet test --no-build -c Release --logger trx --results-directory "TestResults"
         
       - name: Upload dotnet test results
         uses: actions/upload-artifact@v4
@@ -47,7 +58,7 @@ jobs:
       # See https://learn.microsoft.com/en-us/dotnet/core/deploying/#publish-self-contained
       # Example: dotnet publish src/AIWA.API.csproj --self-contained -r linux-x64 -c Release -o ${{env.DOTNET_ROOT}}/out
       - name: dotnet publish
-        run: dotnet publish src/AIWA.API.csproj -c Release -o ${{env.DOTNET_ROOT}}/out
+        run: dotnet publish src/AIWA.API.csproj --no-restore -c Release -o ${{env.DOTNET_ROOT}}/out
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
