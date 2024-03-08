@@ -18,21 +18,30 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up .NET Core
-        uses: actions/setup-dotnet@v3
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.x'
 
-      - name: 'Add private NuGet package feed'
+      - name: Add private NuGet package feed
         shell: bash
         run:
           dotnet nuget add source --username ltlian --password ${{ secrets.NUGET_API_KEY }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/ltlian/index.json"
 
-      - name: Build with dotnet
+      - name: dotnet build
         run: dotnet build src/AIWA.API.csproj -c Release
 
-      - name: Run tests
-        run: dotnet test -c Release --verbosity normal
+      - name: dotnet test
+        run: dotnet test -c Release --logger trx --results-directory "TestResults"
+        
+      - name: Upload dotnet test results
+        uses: actions/upload-artifact@v4
+        with:
+          name: dotnet-results
+          path: TestResults
+          retention-days: 1
+        # Use always() to always run this step to publish test results when there are test failures
+        if: ${{ always() }}
 
       # The Azure Web App service runs the risk of trying to run the app using .NET7. In this case, it might be necessary to deploy as self-contained and with the appropriate rid.
       # See https://learn.microsoft.com/en-us/dotnet/core/deploying/#publish-self-contained
@@ -41,10 +50,11 @@ jobs:
         run: dotnet publish src/AIWA.API.csproj -c Release -o ${{env.DOTNET_ROOT}}/out
 
       - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: .net-app
           path: ${{env.DOTNET_ROOT}}/out
+          retention-days: 1
 
   deploy:
     runs-on: ubuntu-latest
@@ -55,13 +65,13 @@ jobs:
 
     steps:
       - name: Download artifact from build job
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: .net-app
 
       - name: Deploy to Azure Web App
         id: deploy-to-webapp
-        uses: azure/webapps-deploy@v2
+        uses: azure/webapps-deploy@v3
         with:
           app-name: 'aiwa-api'
           slot-name: 'Production'
