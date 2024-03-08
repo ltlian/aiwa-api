@@ -300,7 +300,7 @@ async function postImageAndEnhance(e) {
   enhanceProgress = 0;
   progress();
   const canvas = document.getElementById("paint-canvas");
-  resizeCanvasR(canvas, 0.5).toBlob(async (blob) => {
+  resizeCanvasR(canvas, 0.25).toBlob(async (blob) => {
     const data = new FormData();
     data.append("userImage", blob, "userImage.png");
     const response = await fetch(enhanceImageUrl, {
