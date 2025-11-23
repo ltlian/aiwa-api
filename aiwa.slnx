@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+  </Folder>
+  <Project Path="src/AIWA.API/AIWA.API.csproj" />
+  <Project Path="src/AIWA.EntityFrameworkCore.SQLite/AIWA.EntityFrameworkCore.SQLite.csproj" Id="f8822290-ba07-4539-b542-b87285f11f4a" />
+  <Project Path="src/AIWA.EntityFrameworkCore/AIWA.EntityFrameworkCore.csproj" Id="c1f5a22e-8fde-4185-8e62-6abbda1e775f" />
+  <Project Path="src/Lli.OpenAi.Core/Lli.OpenAi.Core.csproj" />
+  <Project Path="test/AIWA.API.Test.csproj" />
+</Solution>
